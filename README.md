@@ -1,2 +1,3 @@
-# quantum-algs-workflow
-Agentic workflow to parse relevant quantum algorithms literature
+#quantum-algs-workflow
+
+Tool to automatically find and catalog quantum algorithms from arXiv via a ReAct agent-powered workflow.
