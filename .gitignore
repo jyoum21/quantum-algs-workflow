@@ -1,0 +1,28 @@
+# Secrets - NEVER commit these!
+secrets.json
+google_credentials.json
+credentials.json
+*.pem
+*.key
+
+# API keys in any format
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

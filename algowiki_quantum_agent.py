@@ -24,12 +24,37 @@ import pandas as pd
 # Configuration
 # =============================================================================
 MAX_AGENT_STEPS = 40
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-GOOGLE_CREDENTIALS_FILE = "credentials.json"
-SPREADSHEET_NAME = "AlgoWiki_algorithms__our_copy_"  # Your Google Sheet name
+
+# Google service account credentials (standard Google format)
+GOOGLE_CREDENTIALS_FILE = "google_credentials.json"
+
+# Secrets file for API keys (keeps them out of git)
+SECRETS_FILE = "secrets.json"
+
+SPREADSHEET_NAME = "AlgoWiki algorithms (our copy)"  # Your Google Sheet name
 
 # Path to the local Excel file for reading problem structure
-LOCAL_EXCEL_PATH = "/mnt/user-data/uploads/AlgoWiki_algorithms__our_copy_.xlsx"
+LOCAL_EXCEL_PATH = r"C:\Users\jyoum\Downloads\AlgoWiki algorithms (our copy).xlsx"
+
+# =============================================================================
+# API Key Loading
+# =============================================================================
+def get_api_key():
+    """Load Anthropic API key from secrets.json file."""
+    try:
+        with open(SECRETS_FILE) as f:
+            secrets = json.load(f)
+        
+        api_key = secrets.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError(f"ANTHROPIC_API_KEY not found in {SECRETS_FILE}")
+        return api_key
+    
+    except FileNotFoundError:
+        print(f"\n❌ {SECRETS_FILE} not found!")
+        print(f"\nCreate a file named '{SECRETS_FILE}' with this content:")
+        print('{\n    "ANTHROPIC_API_KEY": "sk-ant-api03-your-key-here"\n}')
+        raise
 
 # =============================================================================
 # Tool Definitions for the Agent
@@ -400,13 +425,6 @@ def add_quantum_algorithm(
         # Get headers to understand column structure
         headers = sheet.row_values(1)
         
-        # Build the row according to the sheet structure
-        # Based on the column structure from the Excel file:
-        # Unnamed: 0, Family Name, Looked at?, Variation, Algo ID, Algorithm Description,
-        # Final Call, Exact Problem Statement?, Exact algorithm?, Time Complexity (Average),
-        # Average Case Distribution, Reference?, Unnamed: 12, Algorithm Name, Year,
-        # Paper/Reference Link, DOI, Authors, Number of Authors, Title, ...
-        
         # Create a row with empty values
         row = [''] * len(headers)
         
@@ -518,11 +536,17 @@ Remember: Quality over quantity. Only add papers that are clearly about quantum 
 # =============================================================================
 # Agent Loop
 # =============================================================================
-def run_agent(problem_number: int, verbose: bool = True):
+def run_agent(problem_number: int, verbose: bool = True, api_key: str = None):
     """
     Run the ReAct agent for a given problem number.
     """
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    if not api_key:
+        api_key = get_api_key()
+        if not api_key:
+            print("No API key provided. Exiting.")
+            return {"error": "No API key"}
+    
+    client = anthropic.Anthropic(api_key=api_key)
     
     # Initial user message
     user_message = f"""Please research quantum algorithms for problem number {problem_number}.
@@ -662,6 +686,14 @@ def main():
     print("AlgoWiki Quantum Algorithm Research Agent")
     print("=" * 70)
     
+    # Get API key first
+    api_key = get_api_key()
+    if not api_key:
+        print("Cannot run without API key. Exiting.")
+        return
+    
+    print(f"\n✓ API key configured (starts with {api_key[:10]}...)")
+    
     # Show available problem numbers from the Problems sheet
     print("\nLoading problem list...")
     try:
@@ -674,6 +706,10 @@ def main():
             print(f"  {int(num):3d}. {name}")
         print("  ... (and more)")
         print("-" * 50)
+    except FileNotFoundError:
+        print(f"\n⚠ Excel file not found at: {LOCAL_EXCEL_PATH}")
+        print("Please update LOCAL_EXCEL_PATH in the script to point to your Excel file.")
+        return
     except Exception as e:
         print(f"Note: Could not load problem list: {e}")
     
@@ -690,15 +726,16 @@ def main():
     
     # Run the agent
     print(f"\nStarting research for problem #{problem_number}...")
-    result = run_agent(problem_number, verbose=True)
+    result = run_agent(problem_number, verbose=True, api_key=api_key)
     
     # Print final summary
-    print("\n" + "=" * 70)
-    print("FINAL REPORT")
-    print("=" * 70)
-    print(f"Problem researched: #{result['problem_number']}")
-    print(f"Total steps taken: {result['total_steps']}")
-    print(f"Completed successfully: {result['completed']}")
+    if result and "error" not in result:
+        print("\n" + "=" * 70)
+        print("FINAL REPORT")
+        print("=" * 70)
+        print(f"Problem researched: #{result['problem_number']}")
+        print(f"Total steps taken: {result['total_steps']}")
+        print(f"Completed successfully: {result['completed']}")
 
 
 if __name__ == "__main__":
